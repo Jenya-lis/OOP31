@@ -1,0 +1,256 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+namespace oop3333
+{
+    public partial class Form1 : Form
+    {
+        private readonly CircleContainer _container;
+        private List<Circle> _selectedCircles;
+        private bool _isCtrlPressed;
+
+        public Form1()
+        {
+            InitializeComponent();
+            this.DoubleBuffered = true;
+            _container = new CircleContainer(100);
+            _selectedCircles = new List<Circle>();
+            pictureBox1.MouseDown += PictureBox_MouseDown;
+            this.KeyDown += MainForm_KeyDown;
+            this.KeyUp += MainForm_KeyUp;
+            this.SizeChanged += MainForm_SizeChanged;
+            pictureBox1.Paint += PictureBox_Paint;
+        }
+
+        // Класс круга
+        public class Circle
+        {
+            public int X { get; set; }
+            public int Y { get; set; }
+            public int Radius { get; set; }
+
+            public Circle(int x, int y, int radius = 20)
+            {
+                X = x;
+                Y = y;
+                Radius = radius;
+            }
+
+            // Проверка на пересечение с другим кругом
+            public bool Intersects(Circle other)
+            {
+                int dx = X - other.X;
+                int dy = Y - other.Y;
+                int distanceSquared = dx * dx + dy * dy;
+                int radiusSum = Radius + other.Radius;
+                return distanceSquared <= radiusSum * radiusSum;
+            }
+
+            public bool ContainsPoint(Point point)
+            {
+                int dx = point.X - X;
+                int dy = point.Y - Y;
+                return dx * dx + dy * dy <= Radius * Radius;
+            }
+
+            public void Draw(Graphics g, Color color)
+            {
+                using (var brush = new SolidBrush(color))
+                using (var pen = new Pen(Color.Black))
+                {
+                    g.FillEllipse(brush, X - Radius, Y - Radius, 2 * Radius, 2 * Radius);
+                    g.DrawEllipse(pen, X - Radius, Y - Radius, 2 * Radius, 2 * Radius);
+                }
+            }
+        }
+
+        // Контейнер для хранения кругов
+        public class CircleContainer
+        {
+            private readonly List<Circle> _circles;
+
+            public CircleContainer(int initialCapacity)
+            {
+                _circles = new List<Circle>(initialCapacity);
+            }
+
+            public int Count
+            {
+                get
+                {
+                    return _circles.Count;
+                }
+            }
+
+            public void Add(Circle circle)
+            {
+                _circles.Add(circle);
+            }
+
+            public void RemoveAt(int index)
+            {
+                if (index >= 0 && index < _circles.Count)
+                {
+                    _circles.RemoveAt(index);
+                }
+            }
+
+            public Circle GetByIndex(int index)
+            {
+                if (index >= 0 && index < _circles.Count)
+                {
+                    return _circles[index];
+                }
+                return null;
+            }
+
+            public List<Circle> GetAllCircles()
+            {
+                return new List<Circle>(_circles);
+            }
+        }
+
+        private void PictureBox_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                Circle clickedCircle = FindCircleAt(e.Location);
+
+                if (clickedCircle != null)
+                {
+                    // Найти все пересекающиеся круги
+                    List<Circle> intersectingCircles = new List<Circle>();
+                    intersectingCircles.Add(clickedCircle);
+
+                    foreach (var circle in _container.GetAllCircles())
+                    {
+                        if (circle != clickedCircle && circle.Intersects(clickedCircle))
+                        {
+                            intersectingCircles.Add(circle);
+                        }
+                    }
+
+                    // Обновить выделение
+                    if (_isCtrlPressed)
+                    {
+                        // Если Ctrl зажат, добавляем или удаляем выделение для каждого круга
+                        foreach (var circle in intersectingCircles)
+                        {
+                            if (_selectedCircles.Contains(circle))
+                            {
+                                _selectedCircles.Remove(circle); // Снимаем выделение
+                            }
+                            else
+                            {
+                                _selectedCircles.Add(circle); // Добавляем выделение
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Если Ctrl не зажат, очищаем предыдущее выделение и выделяем только текущие круги
+                        _selectedCircles.Clear();
+                        _selectedCircles.AddRange(intersectingCircles);
+                    }
+                }
+                else
+                {
+                    // Если клик вне круга, создаем новый круг
+                    AddNewCircle(e.Location);
+
+                    // Если Ctrl не зажат, снимаем выделение со всех кругов
+                    if (!_isCtrlPressed)
+                    {
+                        _selectedCircles.Clear();
+                    }
+                }
+
+                pictureBox1.Invalidate(); // Перерисовываем PictureBox
+            }
+        }
+
+        private void AddNewCircle(Point location)
+        {
+            Circle newCircle = new Circle(location.X, location.Y);
+            _container.Add(newCircle);
+
+            if (!_isCtrlPressed)
+            {
+                _selectedCircles.Clear();
+                _selectedCircles.Add(newCircle);
+            }
+        }
+
+        private Circle FindCircleAt(Point location)
+        {
+            for (int i = _container.Count - 1; i >= 0; i--)
+            {
+                Circle circle = _container.GetByIndex(i);
+                if (circle != null && circle.ContainsPoint(location))
+                {
+                    return circle;
+                }
+            }
+            return null;
+        }
+
+        private void PictureBox_Paint(object sender, PaintEventArgs e)
+        {
+            foreach (var circle in _container.GetAllCircles())
+            {
+                Color color = _selectedCircles.Contains(circle) ? Color.Red : Color.Black;
+                circle.Draw(e.Graphics, color);
+            }
+        }
+
+        private void MainForm_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter)
+            {
+                DeleteSelectedCircles();
+            }
+            else if (e.KeyCode == Keys.ControlKey)
+            {
+                _isCtrlPressed = true;
+            }
+        }
+
+        private void DeleteSelectedCircles()
+        {
+            foreach (var circle in _selectedCircles.ToList())
+            {
+                for (int i = _container.Count - 1; i >= 0; i--)
+                {
+                    Circle current = _container.GetByIndex(i);
+                    if (current == circle)
+                    {
+                        _container.RemoveAt(i);
+                        _selectedCircles.Remove(circle);
+                        break;
+                    }
+                }
+            }
+            pictureBox1.Invalidate();
+        }
+
+        private void MainForm_KeyUp(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.ControlKey)
+            {
+                _isCtrlPressed = false;
+            }
+        }
+
+        private void MainForm_SizeChanged(object sender, EventArgs e)
+        {
+            pictureBox1.Invalidate();
+        }
+    }
+}
