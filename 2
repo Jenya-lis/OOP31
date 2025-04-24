@@ -1,0 +1,239 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+
+namespace oop32222
+{
+    public partial class Form1 : Form
+    {
+        private NumberModel model;
+
+        public Form1()
+        {
+            InitializeComponent();
+            model = new NumberModel(); // Создание модели
+            model.OnModelChanged += new EventHandler(Model_OnModelChanged); // Подписка на событие
+            trackBarA.Maximum = 100;
+            trackBarB.Maximum = 100;
+            trackBarC.Maximum = 100;
+
+            UpdateUIFromModel(); // Начальное обновление интерфейса
+        }
+
+        private void Model_OnModelChanged(object sender, EventArgs e)
+        {
+            UpdateUIFromModel(); // Обновление UI при изменении модели
+        }
+
+        private void UpdateUIFromModel()
+        {
+            textBoxA.Text = model.GetA().ToString();
+            numericUpDownA.Value = model.GetA();
+            trackBarA.Value = model.GetA();
+
+            textBoxB.Text = model.GetB().ToString();
+            numericUpDownB.Value = model.GetB();
+            trackBarB.Value = model.GetB();
+
+            textBoxC.Text = model.GetC().ToString();
+            numericUpDownC.Value = model.GetC();
+            trackBarC.Value = model.GetC();
+        }
+        //Методы для А
+        private void textBoxA_TextChanged(object sender, EventArgs e)
+        {
+            int value;
+            if (int.TryParse(textBoxA.Text, out value))
+            {
+                model.SetA(value);
+            }
+            else if (textBoxA.Text.Length == 0)
+            {
+                model.SetA(0); // Обработка пустой строки
+            }
+            else
+            {
+                UpdateUIFromModel(); // Возврат к последнему допустимому значению
+            }
+        }
+
+        private void numericUpDownA_ValueChanged(object sender, EventArgs e)
+        {
+            model.SetA((int)numericUpDownA.Value);
+        }
+
+        private void trackBarA_ValueChanged(object sender, EventArgs e)
+        {
+            model.SetA(trackBarA.Value);
+        }
+        //Методы для В
+        private void textBoxB_TextChanged(object sender, EventArgs e)
+        {
+            int value;
+            if (int.TryParse(textBoxB.Text, out value))
+            {
+                model.SetB(value);
+            }
+            else if (textBoxB.Text.Length == 0)
+            {
+                model.SetB(model.GetA());
+            }
+            else
+            {
+                UpdateUIFromModel();
+            }
+        }
+
+        private void numericUpDownB_ValueChanged(object sender, EventArgs e)
+        {
+            model.SetB((int)numericUpDownB.Value);
+        }
+
+        private void trackBarB_ValueChanged(object sender, EventArgs e)
+        {
+            model.SetB(trackBarB.Value);
+        }
+
+        // Методы для C
+        private void textBoxC_TextChanged(object sender, EventArgs e)
+        {
+            int value;
+            if (int.TryParse(textBoxC.Text, out value))
+            {
+                model.SetC(value);
+            }
+            else if (textBoxC.Text.Length == 0)
+            {
+                model.SetC(100);
+            }
+            else
+            {
+                UpdateUIFromModel();
+            }
+        }
+
+        private void numericUpDownC_ValueChanged(object sender, EventArgs e)
+        {
+            model.SetC((int)numericUpDownC.Value);
+        }
+
+        private void trackBarC_ValueChanged(object sender, EventArgs e)
+        {
+            model.SetC(trackBarC.Value);
+        }
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            model.SaveSettings(); // Сохранение настроек при закрытии формы
+            base.OnFormClosing(e);
+        }
+
+        public class NumberModel // Класс модели для хранения данных
+        {
+            private int a;
+            private int b;
+            private int c;
+
+            public event EventHandler OnModelChanged; // Событие для уведомления об изменениях
+
+            public NumberModel()
+            {
+                LoadSettings();
+                NotifyModelChanged(); // Начальное уведомление после загрузки
+            }
+
+            public int GetA()
+            {
+                return a;
+            }
+
+            public void SetA(int value)
+            {
+                if (a != value)
+                {
+                    a = Math.Max(0, Math.Min(100, value)); // Ограничение диапазона [0, 100]
+                    if (b < a)
+                    {
+                        b = a;
+                    }
+                    if (c < b)
+                    {
+                        c = b;
+                    }
+                    NotifyModelChanged();
+                }
+            }
+
+            public int GetB()
+            {
+                return b;
+            }
+
+            public void SetB(int value)
+            {
+                int proposedValue = Math.Max(0, Math.Min(100, value));
+                if (proposedValue < a)
+                {
+                    proposedValue = a; // Корректировка, чтобы B >= A
+                }
+                if (proposedValue > c)
+                {
+                    proposedValue = c; // Корректировка, чтобы B <= C
+                }
+
+                if (b != proposedValue)
+                {
+                    b = proposedValue;
+                    NotifyModelChanged();
+                }
+            }
+
+            public int GetC()
+            {
+                return c;
+            }
+
+            public void SetC(int value)
+            {
+                if (c != value)
+                {
+                    c = Math.Max(0, Math.Min(100, value)); // Ограничение диапазона [0, 100]
+                    if (b > c)
+                    {
+                        b = c;
+                    }
+                    if (a > b)
+                    {
+                        a = b;
+                    }
+                    NotifyModelChanged();
+                }
+            }
+
+            private void NotifyModelChanged() // Метод уведомления об изменении модели
+            {
+                if (OnModelChanged != null)
+                {
+                    OnModelChanged(this, EventArgs.Empty);
+                }
+            }
+
+            public void LoadSettings()
+            {
+                SetA(a);
+                SetB(b);
+                SetC(c);
+            }
+            public void SaveSettings()
+            {
+                Properties.Settings.Default.Save();
+            }
+        }
+    }
+}
