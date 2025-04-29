@@ -8,92 +8,62 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace oop3333
+namespace oop31
 {
     public partial class Form1 : Form
     {
-        private readonly CircleContainer _container;
-        private List<Circle> _selectedCircles;
-        private bool _isCtrlPressed;
+        private CircleContainer _circles; // Контейнер для хранения кругов
+        private SelectionManager _selectionManager; // Контейнер выделенных кругов
+        private bool _ctrlKeyPressed = false; // Флаг, указывающий, нажата ли клавиша Ctrl
 
-        public Form1()
+        // Определение класса CCircle
+        public class CCircle
         {
-            InitializeComponent();
-            this.DoubleBuffered = true;
-            _container = new CircleContainer(100);
-            _selectedCircles = new List<Circle>();
-            pictureBox1.MouseDown += PictureBox_MouseDown;
-            this.KeyDown += MainForm_KeyDown;
-            this.KeyUp += MainForm_KeyUp;
-            this.SizeChanged += MainForm_SizeChanged;
-            pictureBox1.Paint += PictureBox_Paint;
-        }
+            public int X { get; set; } 
+            public int Y { get; set; } 
+            public int Radius { get; set; } 
 
-        // Класс круга
-        public class Circle
-        {
-            public int X { get; set; }
-            public int Y { get; set; }
-            public int Radius { get; set; }
-
-            public Circle(int x, int y, int radius = 20)
+            public CCircle(int x, int y, int radius = 50)
             {
                 X = x;
                 Y = y;
                 Radius = radius;
             }
-
-            // Проверка на пересечение с другим кругом
-            public bool Intersects(Circle other)
-            {
-                int dx = X - other.X;
-                int dy = Y - other.Y;
-                int distanceSquared = dx * dx + dy * dy;
-                int radiusSum = Radius + other.Radius;
-                return distanceSquared <= radiusSum * radiusSum;
-            }
-
+            //Метод для проверки, содержит ли круг заданную точку
             public bool ContainsPoint(Point point)
             {
-                int dx = point.X - X;
-                int dy = point.Y - Y;
+                double dx = point.X - X;
+                double dy = point.Y - Y;
                 return dx * dx + dy * dy <= Radius * Radius;
             }
-
+            // Метод для рисования круга
             public void Draw(Graphics g, Color color)
             {
-                using (var brush = new SolidBrush(color))
-                using (var pen = new Pen(Color.Black))
-                {
-                    g.FillEllipse(brush, X - Radius, Y - Radius, 2 * Radius, 2 * Radius);
-                    g.DrawEllipse(pen, X - Radius, Y - Radius, 2 * Radius, 2 * Radius);
-                }
+                g.FillEllipse(new SolidBrush(color), X - Radius, Y - Radius, 2 * Radius, 2 * Radius);
+                g.DrawEllipse(new Pen(Color.Black), X - Radius, Y - Radius, 2 * Radius, 2 * Radius);
             }
         }
-
-        // Контейнер для хранения кругов
+        //Класс-контейнер для хранения кругов (список)
         public class CircleContainer
         {
-            private readonly List<Circle> _circles;
+            private List<CCircle> _circles; // Список кругов
 
-            public CircleContainer(int initialCapacity)
+            public CircleContainer(int capacity)  // Конструктор контейнера
             {
-                _circles = new List<Circle>(initialCapacity);
+                _circles = new List<CCircle>(capacity);
             }
 
             public int Count
             {
-                get
-                {
-                    return _circles.Count;
-                }
-            }
+                get { return _circles.Count; }
+            }  // Свойство, возвращающее количество кругов в контейнере
 
-            public void Add(Circle circle)
+            // Метод для добавления круга в контейнер
+            public void Add(CCircle circle)
             {
                 _circles.Add(circle);
             }
-
+            // Метод для удаления круга из контейнера по индексу
             public void RemoveAt(int index)
             {
                 if (index >= 0 && index < _circles.Count)
@@ -101,8 +71,8 @@ namespace oop3333
                     _circles.RemoveAt(index);
                 }
             }
-
-            public Circle GetByIndex(int index)
+            // Метод для получения круга из контейнера по индексу
+            public CCircle GetObject(int index)
             {
                 if (index >= 0 && index < _circles.Count)
                 {
@@ -110,147 +80,169 @@ namespace oop3333
                 }
                 return null;
             }
+        }
+        //Класс-контейнер для хранения выделенных кругов (список)
+        public class SelectionManager
+        {
+            private List<CCircle> _selectedCircles = new List<CCircle>(); // Список кругов
 
-            public List<Circle> GetAllCircles()
+            public IReadOnlyCollection<CCircle> SelectedCircles
             {
-                return new List<Circle>(_circles);
+                get { return _selectedCircles.AsReadOnly(); }
+            }
+
+            // Метод для добавления круга в выделенные.
+            public void AddToSelection(CCircle circle)
+            {
+                if (!_selectedCircles.Contains(circle))
+                {
+                    _selectedCircles.Add(circle);
+                }
+            }
+
+            // Метод для удаления круга из выделенных.
+            public void RemoveFromSelection(CCircle circle)
+            {
+                _selectedCircles.Remove(circle);
+            }
+
+            // Метод для очистки всех выделенных кругов.
+            public void ClearSelection()
+            {
+                _selectedCircles.Clear();
+            }
+
+            // Метод для проверки, выделен ли заданный круг.
+            public bool IsSelected(CCircle circle)
+            {
+                return _selectedCircles.Contains(circle);
             }
         }
 
-        private void PictureBox_MouseDown(object sender, MouseEventArgs e)
+        // Конструктор класса Form1
+        public Form1()
+        {
+            InitializeComponent();
+            _circles = new CircleContainer(100); // Создаем контейнер для кругов с начальной емкостью 100
+            _selectionManager = new SelectionManager(); 
+            this.DoubleBuffered = true;
+        }
+
+   
+        private void pictureBox1_Paint(object sender, PaintEventArgs e)
+        {
+            Graphics g = e.Graphics;
+
+            // Рисуем все круги
+            for (int i = 0; i < _circles.Count; i++)
+            {
+                CCircle circle = _circles.GetObject(i);
+                if (circle != null)
+                {
+                    Color circleColor = Color.Black;
+
+                    // Проверяем, выбран ли круг
+                    if (_selectionManager.IsSelected(circle))
+                    {
+                        circleColor = Color.Red; // Измение цвета для выбранных кругов
+                    }
+
+                    circle.Draw(g, circleColor);
+                }
+            }
+        }
+
+        private void Form1_SizeChanged(object sender, EventArgs e)
+        {
+            pictureBox1.Invalidate(); // Перерисовываем pictureBox1 при изменении размера формы
+        }
+
+      
+        private void Form1_KeyUp(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.ControlKey) // Если отпущена клавиша Ctrl
+            {
+                _ctrlKeyPressed = false; // Сбрасываем флаг, что клавиша Ctrl нажата
+            }
+        }
+
+       
+        private void Form1_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter)
+            {
+                // Удаляем круги из _circles
+                foreach (CCircle circle in _selectionManager.SelectedCircles.ToList())
+                {
+                    for (int i = _circles.Count - 1; i >= 0; i--)
+                    {
+                        if (_circles.GetObject(i) == circle)
+                        {
+                            _circles.RemoveAt(i);
+                        }
+                    }
+                }
+                _selectionManager.ClearSelection(); // Удаляем выбранные из _selectedCircles
+                pictureBox1.Invalidate();
+            }
+            else if (e.KeyCode == Keys.ControlKey) // Если нажата клавиша Ctrl
+            {
+                _ctrlKeyPressed = true; // Устанавливаем флаг, что клавиша Ctrl нажата
+            }
+        }
+
+        private void pictureBox1_MouseDown(object sender, MouseEventArgs e)
         {
             if (e.Button == MouseButtons.Left)
             {
-                Circle clickedCircle = FindCircleAt(e.Location);
+                List<CCircle> intersectedCircles = new List<CCircle>();
 
-                if (clickedCircle != null)
+                // Поиск всех кругов, содержащих точку щелчка
+                for (int i = 0; i < _circles.Count; i++)
                 {
-                    // Найти все пересекающиеся круги
-                    List<Circle> intersectingCircles = new List<Circle>();
-                    intersectingCircles.Add(clickedCircle);
-
-                    foreach (var circle in _container.GetAllCircles())
+                    CCircle circle = _circles.GetObject(i);
+                    if (circle != null && circle.ContainsPoint(e.Location))
                     {
-                        if (circle != clickedCircle && circle.Intersects(clickedCircle))
-                        {
-                            intersectingCircles.Add(circle);
-                        }
+                        intersectedCircles.Add(circle);
                     }
+                }
 
-                    // Обновить выделение
-                    if (_isCtrlPressed)
+                if (intersectedCircles.Count > 0)
+                {
+                    if (_ctrlKeyPressed)
                     {
-                        // Если Ctrl зажат, добавляем или удаляем выделение для каждого круга
-                        foreach (var circle in intersectingCircles)
+                        // Ctrl нажата: переключить выделение для всех пересекающихся кругов
+                        foreach (CCircle circle in intersectedCircles)
                         {
-                            if (_selectedCircles.Contains(circle))
+                            if (_selectionManager.IsSelected(circle))
                             {
-                                _selectedCircles.Remove(circle); // Снимаем выделение
+                                _selectionManager.RemoveFromSelection(circle);
                             }
                             else
                             {
-                                _selectedCircles.Add(circle); // Добавляем выделение
+                                _selectionManager.AddToSelection(circle);
                             }
                         }
                     }
                     else
                     {
-                        // Если Ctrl не зажат, очищаем предыдущее выделение и выделяем только текущие круги
-                        _selectedCircles.Clear();
-                        _selectedCircles.AddRange(intersectingCircles);
+                        // Ctrl не нажата: снять выделение со всего, выделить только пересекающиеся
+                        _selectionManager.ClearSelection();
+                        foreach (CCircle circle in intersectedCircles)
+                        {
+                            _selectionManager.AddToSelection(circle);
+                        }
                     }
                 }
                 else
                 {
-                    // Если клик вне круга, создаем новый круг
-                    AddNewCircle(e.Location);
-
-                    // Если Ctrl не зажат, снимаем выделение со всех кругов
-                    if (!_isCtrlPressed)
-                    {
-                        _selectedCircles.Clear();
-                    }
+                    // Клик вне круга: создать новый круг и снять выделение
+                    _circles.Add(new CCircle(e.X, e.Y));
+                    _selectionManager.ClearSelection();
                 }
 
-                pictureBox1.Invalidate(); // Перерисовываем PictureBox
+                pictureBox1.Invalidate(); // Обновить отображение
             }
-        }
-
-        private void AddNewCircle(Point location)
-        {
-            Circle newCircle = new Circle(location.X, location.Y);
-            _container.Add(newCircle);
-
-            if (!_isCtrlPressed)
-            {
-                _selectedCircles.Clear();
-                _selectedCircles.Add(newCircle);
-            }
-        }
-
-        private Circle FindCircleAt(Point location)
-        {
-            for (int i = _container.Count - 1; i >= 0; i--)
-            {
-                Circle circle = _container.GetByIndex(i);
-                if (circle != null && circle.ContainsPoint(location))
-                {
-                    return circle;
-                }
-            }
-            return null;
-        }
-
-        private void PictureBox_Paint(object sender, PaintEventArgs e)
-        {
-            foreach (var circle in _container.GetAllCircles())
-            {
-                Color color = _selectedCircles.Contains(circle) ? Color.Red : Color.Black;
-                circle.Draw(e.Graphics, color);
-            }
-        }
-
-        private void MainForm_KeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.KeyCode == Keys.Enter)
-            {
-                DeleteSelectedCircles();
-            }
-            else if (e.KeyCode == Keys.ControlKey)
-            {
-                _isCtrlPressed = true;
-            }
-        }
-
-        private void DeleteSelectedCircles()
-        {
-            foreach (var circle in _selectedCircles.ToList())
-            {
-                for (int i = _container.Count - 1; i >= 0; i--)
-                {
-                    Circle current = _container.GetByIndex(i);
-                    if (current == circle)
-                    {
-                        _container.RemoveAt(i);
-                        _selectedCircles.Remove(circle);
-                        break;
-                    }
-                }
-            }
-            pictureBox1.Invalidate();
-        }
-
-        private void MainForm_KeyUp(object sender, KeyEventArgs e)
-        {
-            if (e.KeyCode == Keys.ControlKey)
-            {
-                _isCtrlPressed = false;
-            }
-        }
-
-        private void MainForm_SizeChanged(object sender, EventArgs e)
-        {
-            pictureBox1.Invalidate();
         }
     }
 }
