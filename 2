@@ -190,8 +190,8 @@ namespace oop32222
                 if (b != proposedValue)
                 {
                     b = proposedValue;
-                    NotifyModelChanged();
                 }
+                NotifyModelChanged();
             }
 
             public int GetC()
@@ -221,6 +221,7 @@ namespace oop32222
                 if (OnModelChanged != null)
                 {
                     OnModelChanged(this, EventArgs.Empty);
+                    
                 }
             }
 
